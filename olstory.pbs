@@ -1,0 +1,35 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -j oe
+#PBS -l select=1:ncpus=16:ngpus=2
+#PBS -l walltime=16:00:00
+#PBS -N ols-llama-cont3
+#PBS -P personal-blai006
+
+conda init
+module load miniforge3
+conda activate cov
+cd scratch/AM
+
+export OLLAMA_MODELS=/home/users/ntu/blai006/scratch
+
+# Use full path to ollama (adjust based on actual location)
+/home/users/ntu/blai006/scratch/bin/ollama serve &
+# OR if ollama is directly in scratch:
+# /home/users/ntu/blai006/scratch/ollama serve &
+
+sleep 10
+
+while ! /home/users/ntu/blai006/scratch/bin/ollama list >/dev/null 2>&1; do
+    echo "Waiting for Ollama API..."
+    sleep 3
+done
+
+/home/users/ntu/blai006/scratch/bin/ollama pull llama3.1:70b
+# /home/users/ntu/blai006/scratch/bin/ollama pull mistral:7b
+/home/users/ntu/blai006/scratch/bin/ollama list
+
+which python
+# python3 autneo.py --type part3 --folder cove2
+# python3 autqneo.py --type part3 --folder cove2
+python3 autfneo.py --type part3 --folder cove2

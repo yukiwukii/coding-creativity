@@ -1,0 +1,24 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -j oe
+#PBS -l select=1:ncpus=16:ngpus=4
+#PBS -l walltime=16:00:00
+#PBS -N base-mistral
+#PBS -P personal-blai006
+
+conda init
+module load miniforge3
+conda activate raglab
+cd scratch/AM
+module load cuda/11.6.2
+export HF_HUB_CACHE=/home/users/ntu/blai006/scratch
+export HF_HOME=/home/users/ntu/blai006/scratch
+export BNB_CUDA_VERSION=116
+# pip install --upgrade --quiet transformers pandas numpy torch accelerate
+# pip install -U --quiet bitsandbytes
+# pip install -U --quiet sentencepiece protobuf
+huggingface-cli login --token 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
+# python3 neodola.py
+# python3 raggen.py
+python3 neogenerator.py

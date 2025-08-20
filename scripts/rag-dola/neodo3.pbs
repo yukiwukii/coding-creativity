@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -j oe
+#PBS -l select=1:ncpus=16:ngpus=4
+#PBS -l walltime=16:00:00
+#PBS -N l70-rag
+#PBS -P personal-wwidjaja
+
+module load miniforge3
+conda activate raglab
+cd scratch/coding-creativity
+module load cuda/12.2.2
+export HF_HUB_CACHE=/home/users/ntu/wwidjaja/scratch
+export HF_HOME=/home/users/ntu/wwidjaja/scratch
+export BNB_CUDA_VERSION=122
+# pip install --upgrade --quiet transformers pandas numpy accelerate
+# pip install -U --quiet bitsandbytes
+# pip install -U --quiet sentencepiece protobuf
+huggingface-cli login --token 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
+# python3 scripts/rag-dola/neodola.py
+python3 scripts/rag-dola/raggen.py
+# python3 scripts/rag-dola/neogenerator.py

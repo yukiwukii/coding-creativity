@@ -1,0 +1,6 @@
+FROM codellama:7b-instruct-q8_0
+
+PARAMETER top_p 1.0
+PARAMETER temperature 1.0
+PARAMETER num_predict -1
+PARAMETER num_ctx 128000

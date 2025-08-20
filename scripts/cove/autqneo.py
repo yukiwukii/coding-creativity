@@ -14,33 +14,40 @@ import argparse
 parser = argparse.ArgumentParser(description='Process model responses')
 parser.add_argument('--type', type=str, required=True, help='Type parameter for processing')
 parser.add_argument('--folder', type=str, required=True, help='Type folder for processing')
+parser.add_argument('--port', type=str, required=True, help='Port')
 args = parser.parse_args()
 
 # Access the type argument with: args.type
 print(f"Type parameter: {args.type}")
+model_folder = "Llama70B"
 
 # with open(f"Mistral7B/{args.folder}/CoveMistral7_part1.json",'r') as file:
 #     dataneo=file.read()
 
-with open("Llama70B/cove2/CoveLlama3_1_part3.json",'r') as file:
+# with open("datasets/CodeForce/inference/Llama1B/cove1/part3.json",'r') as file:
+#     dataneo=json.load(file)
+
+with open(f"datasets/CodeForce/inference/{model_folder}/{args.folder}/part1.json",'r') as file:
     dataneo=json.load(file)
 
-print("Opening Llama70B/cove2/CoveLlama3_1_part3.json")
     
 local_llm_config = {
     "config_list": [
         {
-            "model": "llama3.1:70b",  # CHANGE THIS!!!!
+            "model": "llama70-2:latest",  # CHANGE THIS!!!!
             "api_key": "ollama",  # 
-            "base_url": "http://localhost:11434/v1",  # Your URL
+            "base_url": f"http://localhost:{args.port}/v1",  # Your URL
             "price": [0, 0],  # Put in price per 1K tokens [prompt, response] as free!
            
         }
     ],
     "cache_seed": None,  # Turns off caching, useful for testing different models
+    "timeout": 1500,
+    "temperature": 1.0,
+    "top_p": 1.0,
 }
 
-from autogen import AssistantAgent, UserProxyAgent
+
 for idx,j in enumerate(dataneo):
     coveq=[]
     covea=[]
@@ -112,21 +119,12 @@ for idx,j in enumerate(dataneo):
     j["baseq"]=coveq
     j["basea"]=covea
 
-    # if idx % 5 == 0:
-    #     # with open(f"Mistral7B/{args.folder}/CoveMistral7_{args.type}.json", "w") as cove_file:
-    #     #     json.dump(dataneo, cove_file, indent=4)
-    #     with open(f"Llama70B/{args.folder}/CoveLlama3_1_{args.type}.json", 'w') as cove_file:
-    #         json.dump(dataneo, cove_file, indent=4)
-    #     print(f"Saved at {idx}.")
+    with open(f"datasets/CodeForce/inference/{model_folder}/{args.folder}/{args.type}.json", "w") as cove_file:
+        json.dump(dataneo, cove_file, indent=4)
+    print(f"Saved at {idx}.")
 
     # prompts_data.loc[i,"FinalQuestions"]=chat_results1[0].chat_history[1]["content"]
     # prompts_data.loc[i,"FinalAnswers"]=chat_results1[0].chat_history[3]["content"]
-    
-     
-# with open(f"Mistral7B/{args.folder}/CoveMistral7_{args.type}.json", "w") as cove_file:
-#     json.dump(dataneo, cove_file, indent=4)
 
-with open(f"Llama70B/{args.folder}/CoveLlama3_1_{args.type}.json", 'w') as cove_file:
-    json.dump(dataneo, cove_file, indent=4)
 
-print(f"Saved at Llama70B/{args.folder}/CoveLlama3_1_{args.type}.json")
+print(f"datasets/CodeForce/inference/{model_folder}/{args.folder}/{args.type}.json")

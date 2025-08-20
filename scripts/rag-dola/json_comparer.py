@@ -119,6 +119,6 @@ def compare_json_outputs(file1_path, file2_path):
 if __name__ == "__main__":
     # Replace with your actual file paths
     file1 = "raginftemplate.json"  # Replace with your first JSON file path
-    file2 = "Mistral7B/Rag1.json"  # Replace with your second JSON file path
+    file2 = "datasets/CodeForce/inference/Llama70B/Rag1.json"  # Replace with your second JSON file path
     
     compare_json_outputs(file1, file2)

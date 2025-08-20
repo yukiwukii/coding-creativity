@@ -8,7 +8,7 @@ import glob
 def load_summary_files(base_path):
     """Load all summary.json files from the given directory structure."""
     model_data = {}
-    model_folders = ['Llama70B', 'Llama8B', 'Mistral7B']
+    model_folders = ['Llama70B', 'Llama8B', 'Llama1B']
     
     print(f"Looking for model folders in: {os.path.abspath(base_path)}")
     
@@ -196,13 +196,14 @@ def create_comparison_plot(processed_data, plot, method, output_file=None):
     """Create a comparison plot for a specific method."""
     print(f"\nCreating plot for method: {method}")
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 8))  # Increased figure size to accommodate 4 models
     
-    # Define colors and markers for each model
+    # Define colors and markers for each model (updated to include all 4 models)
     model_styles = {
         'Llama70B': {'color': 'blue', 'marker': 'o', 'label': 'Llama 70B'},
         'Llama8B': {'color': 'red', 'marker': 's', 'label': 'Llama 8B'},
-        'Mistral7B': {'color': 'green', 'marker': '^', 'label': 'Mistral 7B'}
+        'Mistral7B': {'color': 'green', 'marker': '^', 'label': 'Mistral 7B'},
+        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'}  # Added Llama1B
     }
     
     # Check if we have any data to plot
@@ -297,12 +298,12 @@ if __name__ == "__main__":
     print("\nCreating plots...")
     
     # CoVe plot
-    create_comparison_plot(processed_data, plot, 'cove', f'plots/{plot}/cove_comparison.png')
+    create_comparison_plot(processed_data, plot, 'cove', f'plots/plots_llamas/{plot}/cove_comparison.png')
     
     # DoLa plot
-    create_comparison_plot(processed_data, plot, 'dola', f'plots/{plot}/dola_comparison.png')
+    create_comparison_plot(processed_data, plot, 'dola', f'plots/plots_llamas/{plot}/dola_comparison.png')
     
     # RAG plot
-    create_comparison_plot(processed_data, plot, 'rag', f'plots/{plot}/rag_comparison.png')
+    create_comparison_plot(processed_data, plot, 'rag', f'plots/plots_llamas/{plot}/rag_comparison.png')
     
     print("\nScript completed!")

@@ -20,10 +20,131 @@ import numpy as np
 import multiprocessing
 import sys
 import importlib.util
-import os
 import tempfile
-import sys
 import shutil
+import re
+from datetime import datetime
+
+class SandboxErrorLogger:
+    """Logs and categorizes errors from sandboxed code execution"""
+    
+    ERROR_PATTERNS = {
+        'timeout': [r'timeout', r'timed out', r'TimeoutError', r'TimeoutException'],
+        'memory_error': [r'MemoryError', r'memory', r'out of memory'],
+        'recursion_error': [r'RecursionError', r'maximum recursion depth exceeded'],
+        'index_error': [
+            r'IndexError',
+            r'index out of (range|bounds)',
+            r'list index out of range',
+            r'string index out of range',
+            r'tuple index out of range'
+        ],
+        'division_error': [r'ZeroDivisionError', r'division by zero'],
+        'type_error': [r'TypeError', r'unsupported operand type', r'must be .*, not'],
+        'value_error': [r'ValueError', r'invalid literal', r'could not convert string to'],
+        'attribute_error': [r'AttributeError', r'has no attribute'],
+        'import_error': [r'ImportError', r'ModuleNotFoundError', r'No module named'],
+        'syntax_error': [r'SyntaxError', r'invalid syntax'],
+        'segmentation_fault': [r'Segmentation fault', r'SIGSEGV', r'crashhh'],
+        'process_killed': [r'SIGKILL', r'killed', r'terminated']
+    }
+    
+    def __init__(self, log_file: str = "sandbox_errors.json"):
+        self.log_file = log_file
+        self.errors = []  # List to store ALL errors
+        self.error_count = 0
+        
+    def categorize_error(self, error_message: str, exit_code: Optional[int] = None) -> str:
+        """Categorize error based on message patterns"""
+        
+        if exit_code == -9:
+            return "process_killed"
+        elif exit_code == -11:
+            return "segmentation_fault"
+        elif exit_code == -15:
+            return "process_terminated"
+        
+        error_message_lower = error_message.lower()
+        for error_type, patterns in self.ERROR_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, error_message_lower, re.IGNORECASE):
+                    return error_type
+        return "other_error"
+    
+    def should_log_error(self, error_message: str) -> bool:
+        """Determine if error should be logged (exclude input format errors)"""
+        
+        exclude_patterns = [
+            r'not enough values to unpack',
+            r'too many values to unpack',
+            r'EOF when reading a line',
+            r'input\(\) takes',
+            r'unexpected EOF while parsing'
+        ]
+        
+        error_lower = error_message.lower()
+        for pattern in exclude_patterns:
+            if re.search(pattern, error_lower, re.IGNORECASE):
+                return False
+        return True
+    
+    def log_error(self, problem_id: str, error_message: str, code_snippet: str, 
+                  exit_code: Optional[int] = None, test_mode: str = "unknown"):
+        """Log a sandbox execution error - logs ALL errors, not just first per problem"""
+        
+        if not self.should_log_error(error_message):
+            return
+        
+        error_type = self.categorize_error(error_message, exit_code)
+        
+        # Add error to list (no deduplication)
+        self.error_count += 1
+        self.errors.append({
+            'error_id': self.error_count,
+            'error_type': error_type,
+            'problem_id': problem_id,
+            'code_snippet': self._truncate_code(code_snippet),
+            'error_message': error_message[:200],
+            'test_mode': test_mode  # 'batch' or 'individual'
+        })
+    
+    def _truncate_code(self, code: str, max_lines: int = 50) -> str:
+        """Truncate code snippet to reasonable size"""
+        if not code:
+            return ""
+        lines = code.split('\n')
+        if len(lines) > max_lines:
+            return '\n'.join(lines[:max_lines]) + f"\n... ({len(lines) - max_lines} more lines)"
+        return code
+    
+    def save_to_file(self):
+        """Save error log to JSON file"""
+        # Calculate summary statistics
+        error_counts = defaultdict(int)
+        problem_error_counts = defaultdict(int)
+        
+        for error in self.errors:
+            error_counts[error['error_type']] += 1
+            problem_error_counts[error['problem_id']] += 1
+        
+        output = {
+            'timestamp': datetime.now().isoformat(),
+            'total_errors': len(self.errors),
+            'unique_problems_with_errors': len(problem_error_counts),
+            'error_counts': dict(error_counts),
+            'errors_per_problem': dict(problem_error_counts),
+            'errors': self.errors
+        }
+        
+        with open(self.log_file, 'w') as f:
+            json.dump(output, f, indent=2)
+    
+    def get_error_summary(self) -> Dict[str, int]:
+        """Get summary of error counts by type"""
+        error_counts = defaultdict(int)
+        for error in self.errors:
+            error_counts[error['error_type']] += 1
+        return dict(error_counts)
 
 def write_solve_to_file(code: str) -> str:
     """
@@ -64,47 +185,60 @@ def import_solve_from_file(file_path: str, temp_dir: str):
     # Return the solve function from the module
     return module.solve
 
-
-
-# def solver(queue,test_input, module_name="solve_module"):
+# def solver(queue, test_input, module_name="solve_module"):
 #     spec = importlib.util.find_spec(module_name)
 #     if spec is None:
 #         raise ImportError(f"Module {module_name} could not be found.")
 #     module = importlib.util.module_from_spec(spec)
 #     spec.loader.exec_module(module)
 #     solve_fn = module.solve
-
-#     # Mock input and capture output
 #     with mock_input(test_input):
 #         with capture_output() as out:
-#             solve_fn()
-#             queue.put(out.getvalue().strip().split('\n'))
+#             result = solve_fn()
+#             printed_output = out.getvalue().strip()
+#             if not printed_output and result is not None:
+#                 if isinstance(result, list):
+#                     printed_output = '\n'.join(str(item) for item in result)
+#                 else:
+#                     printed_output = str(result)
+#             queue.put(printed_output.split('\n') if printed_output else [])
 
 def solver(queue, test_input, module_name="solve_module"):
-    spec = importlib.util.find_spec(module_name)
-    if spec is None:
-        raise ImportError(f"Module {module_name} could not be found.")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    solve_fn = module.solve
-    with mock_input(test_input):
-        with capture_output() as out:
-            result = solve_fn()
-            printed_output = out.getvalue().strip()
-            if not printed_output and result is not None:
-                if isinstance(result, list):
-                    printed_output = '\n'.join(str(item) for item in result)
-                else:
-                    printed_output = str(result)
-            queue.put(printed_output.split('\n') if printed_output else [])
+    """Modified solver that captures and returns error information"""
+    try:
+        spec = importlib.util.find_spec(module_name)
+        if spec is None:
+            queue.put(('error', 'ImportError', f"Module {module_name} could not be found.", None))
+            return
+            
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        solve_fn = module.solve
+        
+        with mock_input(test_input):
+            with capture_output() as out:
+                result = solve_fn()
+                printed_output = out.getvalue().strip()
+                if not printed_output and result is not None:
+                    if isinstance(result, list):
+                        printed_output = '\n'.join(str(item) for item in result)
+                    else:
+                        printed_output = str(result)
+                queue.put(('success', printed_output.split('\n') if printed_output else []))
+                
+    except Exception as e:
+        # Capture the error type and message
+        import traceback
+        error_type = type(e).__name__
+        error_msg = str(e)
+        tb = traceback.format_exc()
+        queue.put(('error', error_type, error_msg, tb))
                   
 
 logger = logging.getLogger(__name__)
 
 
 class CodeForceCorrectnessEvaluator(Evaluator):
-    """
-    """
 
     def __init__(self,
                  inference_result_path: str,
@@ -113,18 +247,20 @@ class CodeForceCorrectnessEvaluator(Evaluator):
 
     @overrides
     def evaluate(self) -> None:
-        """
-        """
         logger.info(f"Functional Correctness Evaluation: model_name={self.model_name}, \
-                      num_sample={self.num_sample}, \
-                      num_dp={self.num_dp}")
+                    num_sample={self.num_sample}, \
+                    num_dp={self.num_dp}")
+
+        # inference_folder = self.inference_result_path[:-5]
+        inference_folder= "/".join(self.inference_result_path.split("/")[:-1] + ["errors", self.inference_result_path.split("/")[-1].replace(".json", "_errors.json")])
+
+        # error_logger = SandboxErrorLogger(f"{inference_folder}_errors.json")
+        error_logger = SandboxErrorLogger(inference_folder)
         
         inference_result = read_json(self.inference_result_path)
-
         test_cases = self.read_test_case(self.test_case_path)
         
-        for rid,result in enumerate(inference_result):
-            
+        for rid, result in enumerate(inference_result):
             test_case = test_cases[result['problem_id']]
             if "codes" in result:
                 codes = []
@@ -138,101 +274,50 @@ class CodeForceCorrectnessEvaluator(Evaluator):
             else:
                 raise ValueError("No expected output found in inference result.")
 
-            # if "codes" in result:
-            #     codes = []
-            #     for idx, output in enumerate(result['codes']):
-            #         print(f"\n{'='*50}")
-            #         print(f"PROBLEM {result['problem_id']} - DP ROUND {idx}")
-            #         print(f"{'='*50}")
-                    
-            #         if output is not None:
-            #             print(f"\n--- ORIGINAL CODE (BEFORE PARSING) ---")
-            #             print(repr(output))  # Shows escape characters
-            #             print("\n--- ORIGINAL CODE (READABLE) ---")
-            #             print(output)
-            #             print(f"--- END ORIGINAL CODE ---")
-                        
-            #             parsed_code = self.parse_code(output)
-                        
-            #             print(f"\n--- PARSED CODE (AFTER PARSING) ---")
-            #             print(repr(parsed_code) if parsed_code else "None")  # Shows escape characters
-            #             print("\n--- PARSED CODE (READABLE) ---")
-            #             print(parsed_code if parsed_code else "None")
-            #             print(f"--- END PARSED CODE ---\n")
-                        
-            #             codes.append(parsed_code)
-            #         else:
-            #             print(f"\n--- TRYING FROM OUTPUTS[{idx}] ---")
-            #             original_from_outputs = result['outputs'][idx]
-            #             print(f"ORIGINAL FROM OUTPUTS:")
-            #             print(repr(original_from_outputs))
-            #             print(original_from_outputs)
-                        
-            #             parsed_from_outputs = self.parse_code(original_from_outputs)
-            #             print(f"PARSED FROM OUTPUTS:")
-            #             print(repr(parsed_from_outputs) if parsed_from_outputs else "None")
-            #             print(parsed_from_outputs if parsed_from_outputs else "None")
-            #             print(f"--- END ---\n")
-                        
-            #             codes.append(parsed_from_outputs)
-                        
-            # elif "outputs" in result:
-            #     codes = []
-            #     for idx, output in enumerate(result['outputs']):
-            #         print(f"\n{'='*50}")
-            #         print(f"PROBLEM {result['problem_id']} - DP ROUND {idx}")
-            #         print(f"{'='*50}")
-                    
-            #         print(f"\n--- ORIGINAL OUTPUT (BEFORE PARSING) ---")
-            #         print(repr(output))
-            #         print("\n--- ORIGINAL OUTPUT (READABLE) ---")
-            #         print(output)
-            #         print(f"--- END ORIGINAL OUTPUT ---")
-                    
-            #         parsed_code = self.parse_code(output)
-                    
-            #         print(f"\n--- PARSED OUTPUT (AFTER PARSING) ---")
-            #         print(repr(parsed_code) if parsed_code else "None")
-            #         print("\n--- PARSED OUTPUT (READABLE) ---")
-            #         print(parsed_code if parsed_code else "None")
-            #         print(f"--- END PARSED OUTPUT ---\n")
-                    
-            #         codes.append(parsed_code)
-            # else:
-            #     raise ValueError("No expected output found in inference result.")
-
             correctness_all_dps = []
             output_all_dps = []
 
             for dp_idx, code in enumerate(codes):
-          
                 if code is not None:
                     assert len(test_case['input']) == len(test_case['output'])
+                    correctness = False
+                    output = None
 
                     try:
-                        (correctness, output) = function_with_timeout(self.test_correctness, (code, test_case['input'], test_case['output']), timeout=6)
-                    except Exception as e:
+                        self._last_error = None
+                        self._current_test_mode = 'unknown'
                         
-                        # correctness: False, output: "code execution timeout"
-                        correctness_all_dps.append(False)
-                        output_all_dps.append("code execution timeout")
-                        continue
+                        (correctness, output) = function_with_timeout(self.test_correctness, (code, test_case['input'], test_case['output']), timeout=6)
+                        
+                        # Check if an error was recorded during execution
+                        if hasattr(self, '_last_error') and self._last_error:
+                            error_msg, exit_code = self._last_error
+                            test_mode = getattr(self, '_current_test_mode', 'unknown')
+                            error_logger.log_error(result['problem_id'], error_msg, code, exit_code, test_mode)
+                        
+                    except Exception as e:
+                        # Log errors that occur
+                        if hasattr(self, '_last_error') and self._last_error:
+                            error_msg, exit_code = self._last_error
+                            test_mode = getattr(self, '_current_test_mode', 'unknown')
+                            error_logger.log_error(result['problem_id'], error_msg, code, exit_code, test_mode)
+                        else:
+                            error_logger.log_error(result['problem_id'], f"Outer execution timeout: {str(e)}", code, None, 'outer_timeout')
+                            correctness_all_dps.append(False)
+                            output_all_dps.append("code execution timeout")
+                            continue
                     finally:
-                        # remove solve() function if exists
                         if 'solve' in globals():
                             del globals()['solve']
 
-
                     if output is None:
-                        # correctness: False, output: "code not executable"
+                        error_logger.log_error(result['problem_id'], "Code not executable - failed to import or parse", code, None, 'parse_error')
                         correctness_all_dps.append(correctness)
                         output_all_dps.append("code not executable")
                     else:
-                        # correctness: bool, output: List[Text]
                         correctness_all_dps.append(correctness)
                         output_all_dps.append(output)
                 else:
-                    # correctness: False, output: "code not parsable"
                     correctness_all_dps.append(False)
                     output_all_dps.append("code not parsable")
 
@@ -240,63 +325,93 @@ class CodeForceCorrectnessEvaluator(Evaluator):
             result['output'] = output_all_dps
             result['expected_output'] = test_case['output']
 
-        return inference_result
-            
-
-    # def parse_code(self, code: Text) -> Optional[Text]:
-    #     """Parse the response generated by the model to get code.
-    #     """
-
-    #     assert code is not None, "Code is None."
-
-    #     code = code.replace("sys.stdin.read()", "input()")
-    #     code = code.replace("stdin.read()", "input()")
-    #     code = code.replace("sys.stdin.readlines()", "input()")
-    #     code = code.replace("stdin.readlines()", "input()")
-    #     code = code.replace("sys.stdin.readline()", "input()")
-    #     code = code.replace("stdin.readline()", "input()")
-
-    #     # Note that different models may have different response format.
-    #     # Find the first "def " signature and look back to the first import statement
-    #     # either in the form of "import ..." or "from ... import ...".
-    #     # if not found, then return the whole code after "def " signature.
-    #     def_idx = code.find("def")
-    #     if def_idx == -1:
-    #         return None
-    #     else: 
-    #         # return the lowest index of string
-    #         import_idx = code.find("import", 0, def_idx)
-    #         from_idx = code.find("from", 0, def_idx)
-    #         # no import statement
-    #         if import_idx == -1 and from_idx == -1:
-    #             code =  code[def_idx:]
-    #         else:
-    #             # "from ... import ..."
-    #             if import_idx > from_idx and from_idx != -1:
-    #                 code = code[from_idx:]
-    #             # "import ..."
-    #             elif import_idx != -1 and from_idx == -1:
-    #                 code = code[import_idx:]
-    #             # "import ... \nfrom ... import ..."
-    #             elif import_idx != -1 and from_idx > import_idx:
-    #                 code = code[import_idx:]
-    #             else:
-    #                 # only has "from" no "import" statement
-    #                 return None
+        # Save error log and print summary
+        error_logger.save_to_file()
+        print("\nError Summary:")
+        for error_type, count in error_logger.get_error_summary().items():
+            print(f"  {error_type}: {count}")
         
-    #     solve_idx = code.find("solve(")
-    #     prefix_code = code[:solve_idx]
-    #     suffix_code = code[solve_idx:]
-    #     lines = suffix_code.split("\n")
-    #     for line in lines:
-    #         if line.startswith(" ") or line.startswith("\t") or line.startswith("solve"):
-    #             prefix_code += line + "\n"
-    #         else:
-    #             # solve() function ends
-    #             break
-    #     code = prefix_code
+        return inference_result
 
-    #     return code
+    # @overrides
+    # def evaluate(self) -> None:
+    #     logger.info(f"Functional Correctness Evaluation: model_name={self.model_name}, \
+    #                   num_sample={self.num_sample}, \
+    #                   num_dp={self.num_dp}")
+
+    #     inference_folder = self.inference_result_path.rsplit('/', 1)[0]
+    #     error_logger = SandboxErrorLogger(f"{inference_folder}/sandbox_errors.json")
+    #     inference_result = read_json(self.inference_result_path)
+    #     test_cases = self.read_test_case(self.test_case_path)
+        
+    #     for rid,result in enumerate(inference_result):
+            
+    #         test_case = test_cases[result['problem_id']]
+    #         if "codes" in result:
+    #             codes = []
+    #             for idx, output in enumerate(result['codes']):
+    #                 if output is not None:
+    #                     codes.append(self.parse_code(output))
+    #                 else:
+    #                     codes.append(self.parse_code(result['outputs'][idx]))
+    #         elif "outputs" in result:
+    #             codes = [self.parse_code(output) for output in result['outputs']]
+    #         else:
+    #             raise ValueError("No expected output found in inference result.")
+
+    #         correctness_all_dps = []
+    #         output_all_dps = []
+
+    #         for dp_idx, code in enumerate(codes):
+          
+    #             if code is not None:
+    #                 assert len(test_case['input']) == len(test_case['output'])
+
+    #                 try:
+    #                     self._last_error = None
+    #                     (correctness, output) = function_with_timeout(self.test_correctness, (code, test_case['input'], test_case['output']), timeout=6)
+    #                     if hasattr(self, '_last_error') and self._last_error:
+    #                         error_msg, exit_code = self._last_error
+    #                         error_logger.log_error(result['problem_id'], error_msg, code, exit_code)
+                    
+    #                 except Exception as e:
+    #                     if hasattr(self, '_last_error') and self._last_error:
+    #                         error_msg, exit_code = self._last_error
+    #                         error_logger.log_error(result['problem_id'], error_msg, code, exit_code)
+    #                     else:
+    #                         error_logger.log_error(result['problem_id'], str(e), code)
+    #                     # correctness: False, output: "code execution timeout"
+    #                     correctness_all_dps.append(False)
+    #                     output_all_dps.append("code execution timeout")
+    #                     continue
+    #                 finally:
+    #                     # remove solve() function if exists
+    #                     if 'solve' in globals():
+    #                         del globals()['solve']
+
+    #                 if output is None:
+    #                     # correctness: False, output: "code not executable"
+    #                     correctness_all_dps.append(correctness)
+    #                     output_all_dps.append("code not executable")
+    #                 else:
+    #                     # correctness: bool, output: List[Text]
+    #                     correctness_all_dps.append(correctness)
+    #                     output_all_dps.append(output)
+    #             else:
+    #                 # correctness: False, output: "code not parsable"
+    #                 correctness_all_dps.append(False)
+    #                 output_all_dps.append("code not parsable")
+
+    #         result['correctness'] = correctness_all_dps
+    #         result['output'] = output_all_dps
+    #         result['expected_output'] = test_case['output']
+        
+    #     error_logger.save_to_file()
+    #     print("\nError Summary:")
+    #     for error_type, count in error_logger.get_error_summary().items():
+    #         print(f"  {error_type}: {count}")
+
+    #     return inference_result
 
     def parse_code(self, code: Text) -> Optional[Text]:
         """Parse the response generated by the model to get code.
@@ -424,181 +539,55 @@ class CodeForceCorrectnessEvaluator(Evaluator):
         
         return test_cases
 
-    def execute_solve(self,test_input,module_name: str = "solve_module"):
-
+    def execute_solve(self, test_input, module_name: str = "solve_module"):
         module = sys.modules[module_name]
-
-    # Access the solve function directly from the module
-        solve_fn = module.solve
-            
+        
         # Queue to capture results from the subprocess
         queue = multiprocessing.Queue()
-        process = multiprocessing.Process(target=solver,args=(queue,test_input,))
+        process = multiprocessing.Process(target=solver, args=(queue, test_input,))
         process.start()
-        process.join()  # No timeout; wait until completion
-
         process.join(timeout=60)
 
-        # If the process is still alive after 60s, kill it and return 0
+        # Handle timeout
         if process.is_alive():
             process.terminate()
-            process.join()  # clean up
+            process.join()
             if process.is_alive():
-                process.kill()  # or os.kill(..., SIGKILL)
+                process.kill()
                 process.join(timeout=5)
-                raise Exception('timeout!')
-
-        if process.exitcode != 0:
-            # Process terminated abnormally (e.g., SIGKILL)
             
-            raise Exception("oops crashhh")
-        return queue.get()
+            # Store timeout error
+            self._last_error = ('Process execution timeout (60s exceeded)', -9)
+            raise Exception('timeout!')
 
-    # def test_correctness(self, 
-    #                      code: Text, 
-    #                      test_case_inputs: List[List[List[Text]]], 
-    #                      test_case_outputs: List[Union[List[Text], Text]]
-    #                      ):
-    #     """Test the correctness of the code with the given test case.
-    #     Output: 
-    #         1. Code is executable: bool, List[Text | None] 
-    #         where None indicates the code is not executable for the specific given test case.
-    #         2. Code is not executable: False, None
-    #     """
-
-    #     try:
-           
-    #         # exec(code, globals())
-    #         temp_dir, file_path = write_solve_to_file(code)
-
-    #     # Import the solve function dynamically and set up the module
-    #         import_solve_from_file(file_path, temp_dir)
-    #     except:
-    #         # code is not executable
-           
-    #         return False, None
-        
-    #     try:
-    #         # first try: feed testing cases at once
+        # Try to get result from queue
+        try:
+            result = queue.get_nowait()
             
-    #         num_test_cases = len(test_case_inputs)
-    #         test_input = [" ".join(row) for case in test_case_inputs for row in case]
-    #         test_input.insert(0, str(num_test_cases))
-    #         output=self.execute_solve(test_input)   
-    #         correctness = [type_agnostic_compare(out, test_out) for out, test_out in zip(output, test_case_outputs)]
-    #         return all(correctness), output             
-    #     except:
-    #         # second try: feed testing cases one by one
+            # Check if it's an error response
+            if isinstance(result, tuple) and len(result) >= 2:
+                if result[0] == 'error':
+                    # We have error details!
+                    _, error_type, error_msg, tb = result
+                    self._last_error = (f"{error_type}: {error_msg}", process.exitcode)
+                    raise Exception("oops crashhh")
+                elif result[0] == 'success':
+                    # Success case
+                    return result[1]
             
-    #         output = []
-    #         correctness = []
-    #         for test_case_input, test_case_output in zip(test_case_inputs, test_case_outputs):
-
-    #             test_input = [" ".join(row) for row in test_case_input]
-    #             try:
-    #                 output_=self.execute_solve(test_input) 
-    #                         # if isinstance(test_case_output, list):
-    #                         #     output_ = output_.split('\n')
-                    
-    #                 sys.__stdout__.write("Output is" + output_ + "\n")
-
-    #                 correctness.append(type_agnostic_compare(output_, test_case_output))
-    #                 output.append(output_)
-    #             except:
-    #                         # code is not executable
-    #                 correctness.append(False)
-    #                 output.append(None)
-    #         return all(correctness), output
-
-    # def test_correctness(self, code, test_case_inputs, test_case_outputs):
-    #     """Debug version that shows the generated code"""
-        
-    #     print(f"\n=== Testing Code ===", flush=True)
-    #     print(f"Input test cases: {len(test_case_inputs)}", flush=True)
-    #     print(f"Expected outputs: {test_case_outputs}", flush=True)
-        
-    #     # SHOW THE ACTUAL GENERATED CODE
-    #     print(f"\n--- GENERATED CODE ---", flush=True)
-    #     print(code, flush=True)
-    #     print(f"--- END GENERATED CODE ---\n", flush=True)
-        
-    #     try:
-    #         temp_dir, file_path = write_solve_to_file(code)
-    #         import_solve_from_file(file_path, temp_dir)
-    #         print("Code compilation successful", flush=True)
-    #     except Exception as e:
-    #         print(f"Code compilation failed: {e}", flush=True)
-    #         return False, None  
+            # Backward compatibility - return as-is
+            return result
+            
+        except:
+            # No result in queue or other issue
+            if process.exitcode != 0:
+                # Process crashed but no details available
+                self._last_error = (f"Process terminated abnormally with exit code: {process.exitcode}", process.exitcode)
+                raise Exception("oops crashhh")
+            else:
+                # Some other issue
+                raise
     
-    #     try:
-    #         # FIRST TRY: Batch execution with all test cases
-    #         num_test_cases = len(test_case_inputs)
-    #         test_input = [" ".join(row) for case in test_case_inputs for row in case]
-    #         test_input.insert(0, str(num_test_cases))
-            
-    #         print(f"Attempting batch execution with input: {test_input}", flush=True)
-            
-    #         # Force output before potentially crashing subprocess
-    #         sys.stdout.flush()
-    #         sys.stderr.flush()
-            
-    #         output = self.execute_solve(test_input)   
-            
-    #         print(f"Batch execution output: {output}", flush=True)
-    #         correctness = [type_agnostic_compare(out, test_out) for out, test_out in zip(output, test_case_outputs)]
-    #         print(f"Batch execution correctness: {correctness}", flush=True)
-            
-    #         return all(correctness), output             
-            
-    #     except Exception as e:
-    #         print(f"Batch execution failed: {e}", flush=True)
-    #         print("=== STARTING FALLBACK: Individual test case execution ===", flush=True)
-            
-    #         # SECOND TRY: Individual test case execution (FALLBACK)
-    #         output = []
-    #         correctness = []
-            
-    #         for i, (test_case_input, test_case_output) in enumerate(zip(test_case_inputs, test_case_outputs)):
-    #             print(f"\n--- Fallback Test Case {i+1} ---", flush=True)
-    #             print(f"Raw test_case_input: {test_case_input}", flush=True)
-                
-    #             test_input = [" ".join(row) for row in test_case_input]
-    #             print(f"Processed test_input for individual execution: {test_input}", flush=True)
-    #             print(f"Expected output: {test_case_output}", flush=True)
-                
-    #             try:
-    #                 output_ = self.execute_solve(test_input) 
-    #                 print(f"Individual execution raw output: {output_}", flush=True)
-                    
-    #                 # FIX: Individual execution returns a list, but we want to flatten it
-    #                 # for single-output test cases
-    #                 if output_ and len(output_) == 1:
-    #                     # Single output case: ['YES'] -> 'YES'
-    #                     flattened_output = output_[0]
-    #                 else:
-    #                     # Multiple output case: keep as list
-    #                     flattened_output = output_
-                        
-    #                 print(f"Individual execution flattened output: {flattened_output}", flush=True)
-    #                 print(f"Expected output: {test_case_output}", flush=True)
-                    
-    #                 correctness.append(type_agnostic_compare(flattened_output, test_case_output))
-    #                 output.append(flattened_output)  # Append the flattened result
-                    
-    #                 print(f"Individual execution correct: {correctness[-1]}", flush=True)
-                    
-    #             except Exception as e:
-    #                 print(f"Individual execution failed: {e}", flush=True)
-    #                 # Code is not executable for this specific test case
-    #                 correctness.append(False)
-    #                 output.append(None)
-            
-    #         print(f"=== FALLBACK COMPLETE ===", flush=True)
-    #         print(f"Final correctness: {correctness}", flush=True)
-    #         print(f"Final output: {output}", flush=True)
-            
-    #         return all(correctness), output
-
     def test_correctness(self, code, test_case_inputs, test_case_outputs):
         try:
             temp_dir, file_path = write_solve_to_file(code)
@@ -606,20 +595,22 @@ class CodeForceCorrectnessEvaluator(Evaluator):
         except Exception as e:
             return False, None
 
+        # Track which mode we're in for error logging
+        self._current_test_mode = 'batch'
+        
         try:
             # FIRST TRY: Batch execution with all test cases
             num_test_cases = len(test_case_inputs)
             test_input = [" ".join(row) for case in test_case_inputs for row in case]
             test_input.insert(0, str(num_test_cases))
             
-            # Enhanced execute_solve with better error capture
             try:
                 output = self.execute_solve(test_input)
             except Exception as exec_error:
-                # Check if it's the "not enough values to unpack" error
                 if "not enough values to unpack" in str(exec_error):
                     pass  # Will trigger fallback
-                raise  # Re-raise to trigger fallback
+                else:
+                    raise
             
             correctness = []
             for i, (out, test_out) in enumerate(zip(output, test_case_outputs)):
@@ -630,34 +621,30 @@ class CodeForceCorrectnessEvaluator(Evaluator):
             return all_correct, output
             
         except Exception as e:
+            if "not enough values to unpack" not in str(e):
+                raise
             pass  # Move to fallback mode
 
         # Individual test case execution (FALLBACK)
+        self._current_test_mode = 'individual'
         output = []
         correctness = []
         
         for i, (test_case_input, test_case_output) in enumerate(zip(test_case_inputs, test_case_outputs)):
             try:
-                # FIX: Use test_case_input, not test_input
                 individual_input = [" ".join(row) for row in test_case_input]
                 
-                try:
-                    output_ = self.execute_solve(individual_input)
-                except Exception as exec_error:
-                    raise
+                output_ = self.execute_solve(individual_input)
                 
-                # SMART FLATTENING: Only flatten if expected output is a single item
+                # Smart flattening logic...
                 if isinstance(test_case_output, list) and len(test_case_output) > 1:
-                    # Expected output has multiple items - don't flatten
                     flattened_output = output_
                 elif isinstance(test_case_output, str) or (isinstance(test_case_output, list) and len(test_case_output) == 1):
-                    # Expected output is single item - flatten if needed
                     if output_ and len(output_) == 1:
                         flattened_output = output_[0]
                     else:
                         flattened_output = output_
                 else:
-                    # Default: don't flatten
                     flattened_output = output_
                 
                 is_correct = type_agnostic_compare(flattened_output, test_case_output)
@@ -665,19 +652,134 @@ class CodeForceCorrectnessEvaluator(Evaluator):
                 output.append(flattened_output)
                 
             except Exception as e:
-                # Code is not executable for this specific test case
+                if "not enough values to unpack" not in str(e):
+                    raise
                 correctness.append(False)
                 output.append(None)
         
         all_correct = all(correctness)
         
-        # Clean up temporary directory
         try:
             shutil.rmtree(temp_dir)
         except:
             pass
         
         return all_correct, output
+
+    # def execute_solve(self,test_input,module_name: str = "solve_module"):
+
+    #     module = sys.modules[module_name]
+
+    # # Access the solve function directly from the module
+    #     solve_fn = module.solve
+            
+    #     # Queue to capture results from the subprocess
+    #     queue = multiprocessing.Queue()
+    #     process = multiprocessing.Process(target=solver,args=(queue,test_input,))
+    #     process.start()
+    #     process.join()  # No timeout; wait until completion
+
+    #     process.join(timeout=60)
+
+    #     # If the process is still alive after 60s, kill it and return 0
+    #     if process.is_alive():
+    #         process.terminate()
+    #         process.join()  # clean up
+    #         if process.is_alive():
+    #             process.kill()  # or os.kill(..., SIGKILL)
+    #             process.join(timeout=5)
+    #         self._last_error = ('timeout!', -9)
+    #         raise Exception('timeout!')
+
+    #     if process.exitcode != 0:
+    #         # Process terminated abnormally (e.g., SIGKILL)
+    #         self._last_error = (f"Process terminated abnormally with exit code: {process.exitcode}", process.exitcode)
+    #         raise Exception("oops crashhh")
+    #     return queue.get()
+
+    # def test_correctness(self, code, test_case_inputs, test_case_outputs):
+    #     try:
+    #         temp_dir, file_path = write_solve_to_file(code)
+    #         import_solve_from_file(file_path, temp_dir)
+    #     except Exception as e:
+    #         return False, None
+
+    #     try:
+    #         # FIRST TRY: Batch execution with all test cases
+    #         num_test_cases = len(test_case_inputs)
+    #         test_input = [" ".join(row) for case in test_case_inputs for row in case]
+    #         test_input.insert(0, str(num_test_cases))
+            
+    #         # Enhanced execute_solve with better error capture
+    #         try:
+    #             output = self.execute_solve(test_input)
+    #         except Exception as exec_error:
+    #             # Check if it's the "not enough values to unpack" error
+    #             if "not enough values to unpack" in str(exec_error):
+    #                 pass  # Will trigger fallback
+    #             raise  # Re-raise to trigger fallback
+            
+    #         correctness = []
+    #         for i, (out, test_out) in enumerate(zip(output, test_case_outputs)):
+    #             is_correct = type_agnostic_compare(out, test_out)
+    #             correctness.append(is_correct)
+            
+    #         all_correct = all(correctness)
+    #         return all_correct, output
+            
+    #     except Exception as e:
+    #         if "not enough values to unpack" not in str(e):
+    #             raise
+    #         pass  # Move to fallback mode
+
+    #     # Individual test case execution (FALLBACK)
+    #     output = []
+    #     correctness = []
+        
+    #     for i, (test_case_input, test_case_output) in enumerate(zip(test_case_inputs, test_case_outputs)):
+    #         try:
+    #             # FIX: Use test_case_input, not test_input
+    #             individual_input = [" ".join(row) for row in test_case_input]
+                
+    #             try:
+    #                 output_ = self.execute_solve(individual_input)
+    #             except Exception as exec_error:
+    #                 raise
+                
+    #             # SMART FLATTENING: Only flatten if expected output is a single item
+    #             if isinstance(test_case_output, list) and len(test_case_output) > 1:
+    #                 # Expected output has multiple items - don't flatten
+    #                 flattened_output = output_
+    #             elif isinstance(test_case_output, str) or (isinstance(test_case_output, list) and len(test_case_output) == 1):
+    #                 # Expected output is single item - flatten if needed
+    #                 if output_ and len(output_) == 1:
+    #                     flattened_output = output_[0]
+    #                 else:
+    #                     flattened_output = output_
+    #             else:
+    #                 # Default: don't flatten
+    #                 flattened_output = output_
+                
+    #             is_correct = type_agnostic_compare(flattened_output, test_case_output)
+    #             correctness.append(is_correct)
+    #             output.append(flattened_output)
+                
+    #         except Exception as e:
+    #             # Code is not executable for this specific test case
+    #             if "not enough values to unpack" not in str(e):
+    #                 raise
+    #             correctness.append(False)
+    #             output.append(None)
+        
+    #     all_correct = all(correctness)
+        
+    #     # Clean up temporary directory
+    #     try:
+    #         shutil.rmtree(temp_dir)
+    #     except:
+    #         pass
+        
+    #     return all_correct, output
 
 class CodexCorrectnessEvaluator(Evaluator):
     def __init__(self,

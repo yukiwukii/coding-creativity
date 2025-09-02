@@ -4,23 +4,39 @@
 #PBS -j oe
 #PBS -l select=1:ncpus=16:mem=64g
 #PBS -l walltime=05:00:00
-#PBS -N correct-l8r2
-#PBS -P personal-wwidjaja
+#PBS -N gpt-l8d1
+#PBS -P personal-btey003
+
+# MODEL='Qwen'
+# TYPE='cove1'
+# FILENAME="Qwen_sample=199_dp=5_${TYPE}"
 
 # MODEL='Llama70B'
-# TYPE='rag3'
-# FILENAME="Llama-3.1-70B-Instruct_sample=199_dp=5_${TYPE}"
+# TYPE='base1'
+# FILENAME="Llama-70B-Instruct_sample=199_dp=5_${TYPE}"
 
 MODEL='Llama8B'
-TYPE='rag2'
+TYPE='dolalow1'
 FILENAME="Llama-8B-Instruct_sample=199_dp=5_${TYPE}"
 
 # MODEL='Mistral7B'
-# TYPE='cove3'
+# TYPE='dola1'
 # FILENAME="Mistral-7B-Instruct_sample=199_dp=5_${TYPE}"
 
 # MODEL='Llama1B'
-# TYPE='rag2'
+# TYPE='dola2'
+# FILENAME="Llama-1B-Instruct_sample=199_dp=5_${TYPE}"
+
+# MODEL='AliModel'
+# TYPE='base1'
+# FILENAME="Ali_sample=199_dp=5_${TYPE}"
+
+# MODEL='Llamacode'
+# TYPE='tts1'
+# FILENAME="Llamacode_sample=199_dp=5_${TYPE}"
+
+# MODEL='Llama1B'
+# TYPE='dolalow1'
 # FILENAME="Llama-1B-Instruct_sample=199_dp=5_${TYPE}"
 
 module load miniforge3
@@ -28,25 +44,25 @@ conda init
 conda activate creativity
 module load cuda/11.6.2
 
-BASE_PATH="/home/users/ntu/wwidjaja/scratch/coding-creativity"
+BASE_PATH="/home/users/ntu/btey003/scratch/coding-creativity"
 cd $BASE_PATH
 export PYTHONPATH=${BASE_PATH}
 
-export HF_HUB_CACHE=/home/users/ntu/wwidjaja/scratch
-export HF_HOME=/home/users/ntu/wwidjaja/scratch
+export HF_HUB_CACHE=/home/users/ntu/btey003/scratch
+export HF_HOME=/home/users/ntu/btey003/scratch
 
 # pip install --upgrade --quiet transformers pandas numpy torch accelerate
-huggingface-cli login --token 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
+huggingface-cli login --token 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
 echo "Starting correctness evaluation now."
 
 # correctness_evaluation
 
-python -u steps/creativity_evaluation.py \
-    --task correctness \
-    --inference-result-path datasets/CodeForce/inference-mohor/GreedyNonGreedy/Neocoder/non-greedy/${MODEL}/${FILENAME}.json \
-    --test-case-path datasets/CodeForce/NeoCoder/test_cases_annotated.json \
-    --save-folder datasets/CodeForce/evaluation/non-greedy/${MODEL} \
-    --type ${TYPE}
+# python -u steps/creativity_evaluation.py \
+#     --task correctness \
+#     --inference-result-path datasets/CodeForce/inference-mohor/GreedyNonGreedy/Neocoder/non-greedy/${MODEL}/${FILENAME}.json \
+#     --test-case-path datasets/CodeForce/NeoCoder/test_cases_annotated.json \
+#     --save-folder datasets/CodeForce/evaluation/non-greedy/${MODEL} \
+#     --type ${TYPE}
 
 # python -u steps/creativity_evaluation.py \
 #     --task correctness \
@@ -64,7 +80,7 @@ python steps/creativity_evaluation.py \
     --inference-result-path datasets/CodeForce/evaluation/non-greedy/${MODEL}/${FILENAME}_creativity.json \
     --human-solution-path datasets/CodeForce/NeoCoder/human_solutions.json \
 
-# echo "Detect techniques done."
+echo "Detect techniques done."
 # echo "Calculating scores now."
 
 # sleep 30s

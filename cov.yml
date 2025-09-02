@@ -175,4 +175,4 @@ dependencies:
       - xformers==0.0.31
       - xgrammar==0.1.21
       - yarl==1.20.1
-prefix: /home/users/ntu/wwidjaja/.conda/envs/cov
+prefix: /home/users/ntu/btey003/.conda/envs/cov

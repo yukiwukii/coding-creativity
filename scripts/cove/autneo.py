@@ -15,19 +15,24 @@ parser = argparse.ArgumentParser(description='Process model responses')
 parser.add_argument('--folder', type=str, required=True, help='Type folder')
 parser.add_argument('--type', type=str, required=True, help='Type parameter for processing')
 parser.add_argument('--port', type=str, required=True, help='Port')
+parser.add_argument('--model', type=str, required=True, help='Model name for the folder')
+parser.add_argument('--ollama', type=str, required=True, help='Ollama model name')
 args = parser.parse_args()
 
 # Access the type argument with: args.type
 print(f"Type parameter: {args.type}")
-model_folder = "Llama70B"
+model_folder = f"{args.model}"
 
-with open('Llama-3.1-8B-Instruct_sample=199_dp=5.json','r') as file:
+# with open('Llama-3.1-8B-Instruct_sample=199_dp=5.json','r') as file:
+#     dataneo = json.load(file)
+
+with open(f"datasets/CodeForce/inference/{model_folder}/{args.folder}/part1.json", "r") as file:
     dataneo = json.load(file)
 
 local_llm_config = {
     "config_list": [
         {
-            "model": "llama70-13:latest", 
+            "model": f"{args.ollama}", 
             "api_key": "ollama",
             "base_url": f"http://localhost:{args.port}/v1",
             "price": [0, 0],

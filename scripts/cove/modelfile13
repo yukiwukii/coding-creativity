@@ -1,4 +1,4 @@
-FROM codellama:7b-instruct-q8_0
+FROM llama3.1:70b-instruct-q8_0
 
 PARAMETER top_p 1.0
 PARAMETER temperature 1.0

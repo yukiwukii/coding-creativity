@@ -13,9 +13,11 @@ parser = argparse.ArgumentParser(description='Process model responses')
 parser.add_argument('--type', type=str, required=True, help='Type parameter for processing')
 parser.add_argument('--folder', type=str, required=True, help='Type folder for processing')
 parser.add_argument('--port', type=str, required=True, help='Port')
+parser.add_argument('--model', type=str, required=True, help='Model name for the folder')
+parser.add_argument('--ollama', type=str, required=True, help='Ollama model name')
 args = parser.parse_args()
 
-model_folder = "Llama70B"
+model_folder = f"{args.model}"
 
 # with open(f'Llama70B/{args.folder}/CoveLlama3_1_part2.json','r') as file:
 #     dataneo=file.read()
@@ -30,7 +32,7 @@ with open(f"datasets/CodeForce/inference/{model_folder}/{args.folder}/part2.json
 local_llm_config = {
     "config_list": [
         {
-            "model": "llama70-13:latest", 
+            "model": f"{args.ollama}", 
             "api_key": "ollama", 
             "base_url": f"http://localhost:{args.port}/v1", 
             "price": [0, 0],  # Put in price per 1K tokens [prompt, response] as free!

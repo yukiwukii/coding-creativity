@@ -1,22 +1,31 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed
+from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, AutoModel
 import json
 import pandas as pd
 import numpy as np
 import torch
 from accelerate.test_utils.testing import get_backend
 from transformers import BitsAndBytesConfig
-with open('datasets/CodeForce/inference/Llama70B/Base1.json','r') as file:
+with open('Llama-3.1-8B-Instruct_sample=199_dp=5.json','r') as file:
 	data = json.load(file)
-with open('datasets/CodeForce/inference/Llama70B/Base2.json','r') as file:
+with open('Llama-3.1-8B-Instruct_sample=199_dp=5.json','r') as file:
 	data2 = json.load(file)
-with open('datasets/CodeForce/inference/Llama70B/Base3.json','r') as file:
+with open('Llama-3.1-8B-Instruct_sample=199_dp=5.json','r') as file:
 	data3 = json.load(file)
 
 quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-70B-Instruct")
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-70B-Instruct",
-		device_map="auto", quantization_config=quantization_config)
+# tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-70B-Instruct")
+# model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-70B-Instruct",
+# 		device_map="auto", quantization_config=quantization_config)
 
+tokenizer = AutoTokenizer.from_pretrained("apple/DiffuCoder-7B-cpGRPO", trust_remote_code=True)
+model = AutoModel.from_pretrained("apple/DiffuCoder-7B-cpGRPO", trust_remote_code=True,
+		device_map="auto", quantization_config=quantization_config)
+		
+# quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+# tokenizer = AutoTokenizer.from_pretrained("syed-aliredha/llama-31-8b-creativity-iti-full")
+# model = AutoModelForCausalLM.from_pretrained("syed-aliredha/llama-31-8b-creativity-iti-full",
+# 		device_map="auto", quantization_config=quantization_config)
+		
 # tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
 # model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3",
 # 		device_map="auto", quantization_config=quantization_config)
@@ -33,7 +42,7 @@ model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-70B-Instruct"
 # model = AutoModelForCausalLM.from_pretrained("openai/gpt-oss-20b",
 # 		device_map="auto")
 
-model_folder = "Llama70B"
+model_folder = "Ali"
 
 device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 candidate_premature_layers = list(range(0, model.config.num_hidden_layers, 2))

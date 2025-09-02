@@ -37,7 +37,7 @@ model_folder = "Llama70B"
 device, _, _ = get_backend()
 
 for idx,i in enumerate(data):
-	if(idx<142):
+	if(idx<189):
 		continue
 	out1=[]
 	out2=[]

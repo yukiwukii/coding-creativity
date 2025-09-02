@@ -4,37 +4,39 @@
 #PBS -l select=1:ncpus=16:ngpus=1
 #PBS -l walltime=10:00:00
 #PBS -N test
-#PBS -P personal-wwidjaja
+#PBS -P personal-btey003
 
 module load miniforge3
 conda activate cov
 cd scratch/coding-creativity
 
-export OLLAMA_MODELS=/home/users/ntu/wwidjaja/scratch
+export OLLAMA_MODELS=/home/users/ntu/btey003/scratch
 export OLLAMA_HOST=127.0.0.1:11435
 
 # Use full path to ollama (adjust based on actual location)
-/home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama serve &
+/home/users/ntu/btey003/scratch/coding-creativity/bin/ollama serve &
 # OR if ollama is directly in scratch:
-# /home/users/ntu/wwidjaja/scratch/ollama serve &
+# /home/users/ntu/btey003/scratch/ollama serve &
 
 sleep 10
 
-while ! /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama list >/dev/null 2>&1; do
+while ! /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama list >/dev/null 2>&1; do
     echo "Waiting for Ollama API..."
     sleep 3
 done
 
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama rm mistral7b-13:latest
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama rm llama3.1:70b-instruct-q8_0
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama rm llama70-2:latest
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama rm llama70-13:latest
 
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama pull llama3.1:8b-instruct-q8_0
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama pull Azazel-AI/llama-3.2-1b-instruct-abliterated.q8_0
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama pull mistral:7b-instruct-v0.3-q8_0
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama pull codellama:7b-instruct-q8_0
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama pull llama3.1:70b-instruct-q8_0
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama create llama70-13 -f ./modelfile13
-# /home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama create llama70-2 -f ./modelfile2
-/home/users/ntu/wwidjaja/scratch/coding-creativity/bin/ollama list
+
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama pull llama3.1:8b-instruct-q8_0
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama pull Azazel-AI/llama-3.2-1b-instruct-abliterated.q8_0
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama pull mistral:7b-instruct-v0.3-q8_0
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama pull codellama:7b-instruct-q8_0
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama pull qwen2.5-coder:7b-instruct-q8_0
+/home/users/ntu/btey003/scratch/coding-creativity/bin/ollama pull llama3.1:70b-instruct-q8_0
+# /home/users/ntu/btey003/scratch/coding-creativity/bin/ollama list
 
 # which python
 # python3 scripts/cove/autneo.py --type part1 --folder cove3

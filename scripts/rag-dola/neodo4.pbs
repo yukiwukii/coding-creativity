@@ -3,8 +3,8 @@
 #PBS -q normal
 #PBS -j oe
 #PBS -l select=1:ncpus=16:ngpus=4
-#PBS -l walltime=16:00:00
-#PBS -N diffusion
+#PBS -l walltime=20:00:00
+#PBS -N ab-med-l8
 #PBS -P personal-btey003
 
 module load miniforge3
@@ -17,7 +17,7 @@ export BNB_CUDA_VERSION=122
 # pip install --upgrade --quiet transformers pandas numpy accelerate
 # pip install -U --quiet bitsandbytes
 # pip install -U --quiet sentencepiece protobuf
-huggingface-cli login --token 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
-# python3 scripts/rag-dola/neodola.py
+huggingface-cli login --token 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
+python3 scripts/rag-dola/neodola-med.py
 # python3 scripts/rag-dola/raggen.py
-python3 scripts/rag-dola/neogenerator.py
+# python3 scripts/rag-dola/neogenerator.py

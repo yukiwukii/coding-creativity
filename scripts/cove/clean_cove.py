@@ -1,7 +1,7 @@
 import json
 import re
 
-with open('datasets/CodeForce/inference-mohor/GreedyNonGreedy/Neocoder/non-greedy/Llama1B/Llama-1B-Instruct_sample=199_dp=5_rag3.json','r') as file:
+with open('datasets/CodeForce/inference/Llamacode/cove3/part3.json','r') as file:
         dataneo=file.read()
 dataneo=json.loads(dataneo)
 
@@ -12,5 +12,5 @@ for idx,j in enumerate(dataneo):
     t3="```python"+last_code_block+"```"
     j["outputs"][idx2]=t3
 
-with open("datasets/CodeForce/inference-mohor/GreedyNonGreedy/Neocoder/non-greedy/Llama1B/Llama-1B-Instruct_sample=199_dp=5_rag3-cleaned.json", "w") as cove_file:
+with open("datasets/CodeForce/inference-mohor/GreedyNonGreedy/Neocoder/non-greedy/Llamacode/Llamacode_sample=199_dp=5_cove3.json", "w") as cove_file:
     json.dump(dataneo, cove_file, indent=4)

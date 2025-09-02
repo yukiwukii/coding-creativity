@@ -4,20 +4,28 @@
 #PBS -j oe
 #PBS -l select=1:ncpus=16:mem=64g
 #PBS -l walltime=05:00:00
-#PBS -N correct-l8d3
-#PBS -P personal-wwidjaja
+#PBS -N correct-l8r1
+#PBS -P personal-btey003
 
 # MODEL='Llama70B'
 # TYPE='rag3'
-# FILENAME="Llama-3.1-70B-Instruct_sample=199_dp=5_${TYPE}"
+# FILENAME="Llama-70B-Instruct_sample=199_dp=5_${TYPE}"
 
-MODEL='Llama8B'
-TYPE='dola3'
-FILENAME="Llama-8B-Instruct_sample=199_dp=5_${TYPE}"
+# MODEL='Llama8B'
+# TYPE='rag1'
+# FILENAME="Llama-8B-Instruct_sample=199_dp=5_${TYPE}"
 
 # MODEL='Mistral7B'
-# TYPE='cove3'
+# TYPE='rag2'
 # FILENAME="Mistral-7B-Instruct_sample=199_dp=5_${TYPE}"
+
+# MODEL='Qwen'
+# TYPE='rag3'
+# FILENAME="Qwen_sample=199_dp=5_${TYPE}"
+
+MODEL='Llamacode'
+TYPE='tts3'
+FILENAME="Llamacode_sample=199_dp=5_${TYPE}"
 
 # MODEL='Llama1B'
 # TYPE='rag3'
@@ -28,15 +36,15 @@ conda init
 conda activate creativity
 module load cuda/11.6.2
 
-BASE_PATH="/home/users/ntu/wwidjaja/scratch/coding-creativity"
+BASE_PATH="/home/users/ntu/btey003/scratch/coding-creativity"
 cd $BASE_PATH
 export PYTHONPATH=${BASE_PATH}
 
-export HF_HUB_CACHE=/home/users/ntu/wwidjaja/scratch
-export HF_HOME=/home/users/ntu/wwidjaja/scratch
+export HF_HUB_CACHE=/home/users/ntu/btey003/scratch
+export HF_HOME=/home/users/ntu/btey003/scratch
 
 # pip install --upgrade --quiet transformers pandas numpy torch accelerate
-huggingface-cli login --token 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
+huggingface-cli login --token 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
 echo "Starting correctness evaluation now."
 
 # correctness_evaluation

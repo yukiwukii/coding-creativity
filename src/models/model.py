@@ -159,40 +159,44 @@ class OpenAIModel:
     def __init__(self, 
                  model: str,
                  temperature: float = 1,
-                 max_tokens: int = 256,
+                 max_completion_tokens: int = 512,
                  top_p: float = 1,
                  n: int = 1,
-                 gpt_setting: str = None):
+                 gpt_setting: str = None,
+                 reasoning: dict = {'effort': 'minimal'}):
         self.model = model
         self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.max_completion_tokens = max_completion_tokens
         self.top_p = top_p
         self.n = n
         self.gpt_setting = gpt_setting
         self.restart()
         self.client = OpenAI()
+        self.reasoning = reasoning
         
     @backoff.on_exception(backoff.expo, openai.OpenAIError)
     def chatcompletions_with_backoff(self, **kwargs):
-        return self.client.chat.completions.create(**kwargs)
+        return self.client.responses.create(**kwargs)
 
     @backoff.on_exception(backoff.expo, openai.OpenAIError)
     def completions_with_backoff(self, **kwargs):
-        return self.client.completions.create(**kwargs)
+        return self.client.chat.completions.create(**kwargs)
 
     def chatgpt(self) -> list:
         global completion_tokens, prompt_tokens
         outputs = []
         res = self.chatcompletions_with_backoff(model=self.model, 
-                                                messages=self.message, 
+                                                input=self.message, 
                                                 temperature=self.temperature, 
-                                                max_tokens=self.max_tokens, 
-                                                n=self.n,
-                                                top_p=self.top_p)
-        outputs.extend([choice.message.content for choice in res.choices])
+                                                max_output_tokens=self.max_completion_tokens, 
+                                                # n=self.n,
+                                                top_p=self.top_p,
+                                                reasoning=self.reasoning)
+        # outputs.extend([choice.message.content for choice in res.choices])
+        outputs.append(res.output_text)
         # log completion tokens
-        completion_tokens += res.usage.completion_tokens
-        prompt_tokens += res.usage.prompt_tokens
+        completion_tokens += res.usage.output_tokens
+        prompt_tokens += res.usage.input_tokens
         return outputs
 
     def completiongpt(self) -> list:
@@ -201,7 +205,7 @@ class OpenAIModel:
         res = self.completions_with_backoff(model=self.model, 
                                             messages=self.message, 
                                             temperature=self.temperature, 
-                                            max_tokens=self.max_tokens, 
+                                            max_completion_tokens=self.max_completion_tokens, 
                                             n=self.n, 
                                             top_p=self.top_p)
         outputs.extend([choice.text for choice in res.choices])
@@ -221,6 +225,8 @@ class OpenAIModel:
             cost = completion_tokens / 1000 * 0.002 + prompt_tokens / 1000 * 0.0015
         elif "davinci" in model:
             cost = completion_tokens / 1000 * 0.02 + prompt_tokens / 1000 * 0.02
+        elif "gpt-5-mini" in model:
+            cost = completion_tokens / 1000 * 0.002 + prompt_tokens / 1000 * 0.00025
         return {"completion_tokens": completion_tokens, "prompt_tokens": prompt_tokens, "cost": cost}
 
     def __call__(self, input: str) -> list:

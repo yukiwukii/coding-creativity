@@ -52,6 +52,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 __MODEL_TO_CLASS__ = {
+    "gpt-5-mini": OpenAIModel,
     "gpt-4-1106-preview": OpenAIModel,
     "gpt-4": OpenAIModel,
     "gpt-3.5-turbo": OpenAIModel,
@@ -300,9 +301,9 @@ def technique_detection(human_solution_path: str,
     else:
         human_tech = {}
 
-    code_reviewer = OpenAIModel(model="gpt-4-1106-preview", gpt_setting=CODE_REVIEWER)
+    code_reviewer = OpenAIModel(model="gpt-5-mini", gpt_setting=CODE_REVIEWER)
     code_evaluator = CodeForceCorrectnessEvaluator(inference_result_path, test_case_path=None) # only used for parsing codes
-    code_generator = APIModelParallelThreadDPInference("gpt-4-1106-preview", dp_rounds=0) # only used for parsing techniques
+    code_generator = APIModelParallelThreadDPInference("gpt-5-mini", dp_rounds=0) # only used for parsing techniques
     
     def _detect_techniques(code: Text) -> List[Text]:
         while True:
@@ -357,7 +358,7 @@ def technique_detection(human_solution_path: str,
             save_json(inference_result, inference_result_path)
 
         # monitor OpenAI API usage
-        print(code_reviewer.gpt_usage(model = "gpt-4-1106-preview"))
+        print(code_reviewer.gpt_usage(model = "gpt-5-mini"))
 
 def calculate_creativity(inference_result_path: str,
                          human_solution_path: str,

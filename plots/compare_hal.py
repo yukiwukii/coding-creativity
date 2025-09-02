@@ -8,7 +8,7 @@ import glob
 def load_summary_files(base_path):
     """Load all summary.json files from the given directory structure."""
     model_data = {}
-    model_folders = ['Llama70B', 'Llama8B', 'Llama1B']
+    model_folders = ['Llama70B', 'Llama8B', 'Llama1B', 'Mistral7B', 'Ali2', 'Qwen']
     
     print(f"Looking for model folders in: {os.path.abspath(base_path)}")
     
@@ -202,8 +202,11 @@ def create_comparison_plot(processed_data, plot, method, output_file=None):
     model_styles = {
         'Llama70B': {'color': 'blue', 'marker': 'o', 'label': 'Llama 70B'},
         'Llama8B': {'color': 'red', 'marker': 's', 'label': 'Llama 8B'},
-        'Mistral7B': {'color': 'green', 'marker': '^', 'label': 'Mistral 7B'},
-        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'}  # Added Llama1B
+        'Mistral7B': {'color': 'black', 'marker': 'x', 'label': 'Mistral 7B'},
+        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'},
+        'Llamacode': {'color': 'green', 'marker': '^', 'label': 'Llama-coder'},
+        'Ali2': {'color': 'navy', 'marker': 'o', 'label': 'Ali-model'},
+        'Qwen': {'color': 'salmon', 'marker': 'D', 'label': 'Qwen'}
     }
     
     # Check if we have any data to plot
@@ -271,8 +274,8 @@ def create_comparison_plot(processed_data, plot, method, output_file=None):
 # Main execution
 if __name__ == "__main__":
     # Set the base path where your model folders are located
-    base_path = "datasets/CodeForce/neoresults"  # Adjust this to your actual path
-    plot = 'instruction_hallucination'
+    base_path = "datasets/CodeForce/neoresults/non-greedy"  # Adjust this to your actual path
+    plot = 'total_creativity'
     
     # Load all summary files
     print("Loading summary files...")
@@ -298,12 +301,12 @@ if __name__ == "__main__":
     print("\nCreating plots...")
     
     # CoVe plot
-    create_comparison_plot(processed_data, plot, 'cove', f'plots/plots_llamas/{plot}/cove_comparison.png')
+    create_comparison_plot(processed_data, plot, 'cove', f'plots/all_plots/{plot}/cove_comparison.png')
     
     # DoLa plot
-    create_comparison_plot(processed_data, plot, 'dola', f'plots/plots_llamas/{plot}/dola_comparison.png')
+    create_comparison_plot(processed_data, plot, 'dola', f'plots/all_plots/{plot}/dola_comparison.png')
     
     # RAG plot
-    create_comparison_plot(processed_data, plot, 'rag', f'plots/plots_llamas/{plot}/rag_comparison.png')
+    create_comparison_plot(processed_data, plot, 'rag', f'plots/all_plots/{plot}/rag_comparison.png')
     
     print("\nScript completed!")

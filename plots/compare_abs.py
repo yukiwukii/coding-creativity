@@ -8,7 +8,7 @@ import glob
 def load_summary_files(base_path):
     """Load all summary.json files from the given directory structure."""
     model_data = {}
-    model_folders = ['Llama70B', 'Llama8B', 'Mistral7B', 'Llama1B']
+    model_folders = ['Llama8B', 'Ali2']
     
     print(f"Looking for model folders in: {os.path.abspath(base_path)}")
     
@@ -179,10 +179,13 @@ def create_comparison_plot(processed_data, plot, method, output_file=None):
     model_styles = {
         'Llama70B': {'color': 'blue', 'marker': 'o', 'label': 'Llama 70B'},
         'Llama8B': {'color': 'red', 'marker': 's', 'label': 'Llama 8B'},
-        'Mistral7B': {'color': 'green', 'marker': '^', 'label': 'Mistral 7B'},
-        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'}
+        'Mistral7B': {'color': 'black', 'marker': 'x', 'label': 'Mistral 7B'},
+        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'},
+        'Llamacode': {'color': 'green', 'marker': '^', 'label': 'Llama-coder'},
+        'Ali2': {'color': 'navy', 'marker': 'o', 'label': 'Ali'},
+        'Qwen': {'color': 'salmon', 'marker': 'D', 'label': 'Qwen'}
     }
-    
+
     # Check if we have any data to plot
     has_data = False
     
@@ -254,10 +257,13 @@ def create_combined_plot(processed_data, plot, output_file=None):
     model_styles = {
         'Llama70B': {'color': 'blue', 'marker': 'o', 'label': 'Llama 70B'},
         'Llama8B': {'color': 'red', 'marker': 's', 'label': 'Llama 8B'},
-        'Mistral7B': {'color': 'green', 'marker': '^', 'label': 'Mistral 7B'},
-        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'}
+        'Mistral7B': {'color': 'black', 'marker': 'x', 'label': 'Mistral 7B'},
+        'Llama1B': {'color': 'purple', 'marker': 'D', 'label': 'Llama 1B'},
+        'Llamacode': {'color': 'green', 'marker': '^', 'label': 'Llama-coder'},
+        'Ali2': {'color': 'navy', 'marker': 'o', 'label': 'Ali-model'},
+        'Qwen': {'color': 'salmon', 'marker': 'D', 'label': 'Qwen'}
     }
-    
+
     # Define line styles for each method
     method_styles = {
         'base': {'linestyle': '-', 'alpha': 0.8},
@@ -322,8 +328,10 @@ def create_combined_plot(processed_data, plot, output_file=None):
 # Main execution
 if __name__ == "__main__":
     # Set the base path where your model folders are located
-    base_path = "datasets/CodeForce/neoresults"  # Adjust this to your actual path
+    base_path = "datasets/CodeForce/neoresults/non-greedy"  # Adjust this to your actual path
     plot = 'total_creativity'
+    folder = 'plots_absolute'
+    
     
     # Load all summary files
     print("Loading summary files...")
@@ -349,12 +357,12 @@ if __name__ == "__main__":
     print("\nCreating plots...")
     
     # Individual method plots
-    create_comparison_plot(processed_data, plot, 'base', f'plots_absolute/{plot}/base_absolute.png')
-    create_comparison_plot(processed_data, plot, 'cove', f'plots_absolute/{plot}/cove_absolute.png')
-    create_comparison_plot(processed_data, plot, 'dola', f'plots_absolute/{plot}/dola_absolute.png')
-    create_comparison_plot(processed_data, plot, 'rag', f'plots_absolute/{plot}/rag_absolute.png')
+    create_comparison_plot(processed_data, plot, 'base', f'plots/{folder}/{plot}/base_absolute.png')
+    create_comparison_plot(processed_data, plot, 'cove', f'plots/{folder}/{plot}/cove_absolute.png')
+    create_comparison_plot(processed_data, plot, 'dola', f'plots/{folder}/{plot}/dola_absolute.png')
+    create_comparison_plot(processed_data, plot, 'rag', f'plots/{folder}/{plot}/rag_absolute.png')
     
     # Combined plot
-    create_combined_plot(processed_data, plot, f'plots_absolute/{plot}/all_methods_combined.png')
+    create_combined_plot(processed_data, plot, f'plots/plots_ali/{plot}/all_methods_combined.png')
     
     print("\nScript completed!")

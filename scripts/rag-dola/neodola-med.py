@@ -72,11 +72,11 @@ for idx,i in enumerate(data):
 	data2[idx]["outputs"]=dola_med
 	data3[idx]["outputs"]=dola_high
 
-	with open(f"datasets/CodeForce/inference/{model_folder}/dola1-low.json", "w") as dola_file:
+	with open(f"datasets/CodeForce/inference/{model_folder}/dola1-med.json", "w") as dola_file:
 		json.dump(data, dola_file, indent=4)
-	with open(f"datasets/CodeForce/inference/{model_folder}/dola2-low.json", "w") as base_file:
+	with open(f"datasets/CodeForce/inference/{model_folder}/dola2-med.json", "w") as base_file:
 		json.dump(data2, base_file, indent=4)
-	with open(f"datasets/CodeForce/inference/{model_folder}/dola3-low.json", "w") as base_file:
+	with open(f"datasets/CodeForce/inference/{model_folder}/dola3-med.json", "w") as base_file:
 		json.dump(data3, base_file, indent=4)
 	print(f"Saved at index {idx}.")
 	 
